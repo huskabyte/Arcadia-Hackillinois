@@ -47,9 +47,7 @@ export function FBXModel(props: any) {
         }
     });
 
-    // Adjust the model's scale and position
-    fbx.scale.set(1, 1, 1) // Make sure it's a reasonable scale
-
+    fbx.scale.set(1, 1, 1)
     return <primitive ref={motionRef} position={[0, 0, 0]} object={fbx} />
 }
 

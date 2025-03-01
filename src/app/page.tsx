@@ -28,6 +28,13 @@ export default function App() {
     function onConnect() {
       console.log("connected!")
       socket.emit("fieldupdate", "")
+      socket.emit("movesupdate", "")
+      const delayMessage = async () => {
+        setTimeout(() => {
+          setTurn(true);
+        }, 4000);
+      };
+      delayMessage();
     }
 
     function onDisconnect() {
@@ -42,6 +49,10 @@ export default function App() {
       setField(jsoncontent);
     })
 
+    socket.on("moves", moves => {
+      setPossibleMoves(moves);
+    })
+
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
@@ -53,6 +64,8 @@ export default function App() {
   textures.push(tile);
   const [cards, setCards] = useState(['f0003']);
   const [select, setSelect] = useState<string | null>(null);
+  const [possibleMoves, setPossibleMoves] = useState([]);
+  const [turn, setTurn] = useState(false);
 
   const action = useState(null);
   return (
@@ -64,7 +77,7 @@ export default function App() {
         <ambientLight intensity={Math.PI / 2} />
         <pointLight position={[500, 1000, 0]} decay={0} intensity={Math.PI} />
 
-        <DrawGameField select={select} textures={textures} socket={socket}></DrawGameField>
+        <DrawGameField select={select} textures={textures} socket={socket} moves={turn ? possibleMoves : []}></DrawGameField>
 
         {field.length != 0 && field.map((obj: any,) => {
           return(<DrawCreature key={obj.uuid} creature={obj} position={[(obj.x-6)*tilescale + obj.y*tilescale - Math.ceil((obj.x-6)/2)*tilescale, 0, obj.y*tilescale - Math.ceil((obj.x-6)/2)*tilescale]}></DrawCreature>)
@@ -76,8 +89,9 @@ export default function App() {
           }else{
             setSelect("f0004")
           }
-        }} x={10} open={true}></Card>
+        }} x={10} open={false}></Card>
       </Canvas>
+      <div className={`w-screen h-screen fixed top-0 ${turn ? "hidden" : ""}`}></div>
     </div>
   )
 }
@@ -154,7 +168,7 @@ function Card(props: any){
       rotation={[euler.x, euler.y, euler.z, 'XZY']}
       position={[tilescale * y, -cardScale * 3 ,tilescale * y]}
       scale={hovered || props.selected ? 1.2 : 1}
-      onPointerOver={(event) => setHover(true)}
+      onPointerOver={(event) => setHover(props.open)}
       onPointerOut={(event) => setHover(false)}>
       <boxGeometry args={[2 * cardScale, 3 * cardScale, 0]}/>
       <meshStandardMaterial map={back} attach="material-0"/>
