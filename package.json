@@ -16,7 +16,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "socket.io-client": "^4.8.1",
-    "three": "^0.174.0"
+    "three": "^0.174.0",
+    "three-stdlib": "^2.35.14"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

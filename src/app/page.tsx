@@ -6,6 +6,7 @@ import { Mesh, Texture, TextureLoader } from 'three';
 import * as THREE from 'three';
 import mergeImages from 'merge-images';
 import { io } from "socket.io-client";
+import { FBXModel } from './render/creature';
 
 const tilescale = 70;
 const cardScale = 70;
@@ -15,6 +16,8 @@ const y = 4
 const socket = io('http://localhost:8080');
 
 export default function App() {
+
+  const [field, setField] = useState<any>([]);
 
   useEffect(() => {
     if (socket.connected) {
@@ -32,8 +35,10 @@ export default function App() {
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
 
-    socket.on("gameupdate", (gamestate) => {
-      console.log(gamestate);
+    socket.on("creatureUpdate", async (gamestate) => {
+      let jsoncontent = await JSON.parse(gamestate);
+      console.log(jsoncontent)
+      setField(jsoncontent);
     })
 
     return () => {
@@ -46,7 +51,6 @@ export default function App() {
   const textures: Texture[] = []
   textures.push(tile);
   const board = genGameField(x, y);
-  const [field, setField] = useState<string[][]>([]);
   const [cards, setCards] = useState(['f0003']);
   const [select, setSelect] = useState<string | null>(null);
 
@@ -62,13 +66,37 @@ export default function App() {
 
         {board[0].map(arr => {
           return(<InternalTile map={textures[arr[3]]} onClick={() => {
-            console.log(`${arr[4]} ${arr[5]}`)
+            socket.emit("action", {
+              card: select,
+              x: arr[4],
+              y: arr[5]
+            })
+            console.log("action emitted!")
           }} position={[arr[0], arr[1], arr[2]]} key={`${arr[4]} ${arr[5]}`}></InternalTile>)
         })}
         {board[1].map(arr => {
           return(<Tile map={textures[arr[3]]} onClick={() => {
-            console.log(`${arr[4]} ${arr[5]}`)
+            socket.emit("action", {
+              card: select,
+              x: arr[4],
+              y: arr[5]
+            })
+            console.log("action emitted!")
           }} position={[arr[0], arr[1], arr[2]]} key={`${arr[4]} ${arr[5]}`}></Tile>)
+        })}
+
+        {field.length != 0 && field.map((arr: any, i: any) => {
+          return(
+            <>
+              {arr.map((obj: any, j: any) => {
+                  let xval = i-6;
+                  let yval = j;
+                  
+                  
+                  return(<DrawCreature creature={obj} position={[xval*tilescale + yval*tilescale - Math.ceil(xval/2)*tilescale, 0, yval*tilescale - Math.ceil(xval/2)*tilescale]}></DrawCreature>)
+              })}
+            </>
+          )
         })}
 
         <Card name="f0004" selected={select == "f0004"} onClick={() => {
@@ -130,9 +158,9 @@ function genGameField(x: number, y: number){
   let lastrow: number[][] = [];
     for(let i = 0; i < y; i++){
       if(i == y-1){
-        lastrow.push([i*tilescale, 0, i*tilescale, 0, 0, i]);
+        lastrow.push([i*tilescale, 0, i*tilescale, 0, 0+x*2, i]);
       }else{
-        ret.push([i*tilescale, 0, i*tilescale, 0, 0, i]);
+        ret.push([i*tilescale, 0, i*tilescale, 0, 0+x*2, i]);
       }
     }
     
@@ -149,9 +177,6 @@ function genGameField(x: number, y: number){
         }
       }
     }
-
-  console.log(ret)
-  console.log(lastrow);
 
   return [ret, lastrow];
 }
@@ -238,5 +263,15 @@ function Card(props: any){
       <meshStandardMaterial ref={matRef} map={texture} attach="material-4" color={props.selected ? "rgb(100%, 100%, 70%)" : "rgb(100%, 100%, 100%)"}/>
       <meshStandardMaterial map={back} attach="material-5" color={props.selected ? "rgb(100%, 100%, 70%)" : "rgb(100%, 100%, 100%)"} />
     </mesh>
+  )
+}
+
+function DrawCreature(props: any){
+  if(props.creature == null){
+    return null;
+  }
+  return (
+    <FBXModel position={[props.position[0], props.position[1], props.position[2]]}>
+    </FBXModel>
   )
 }
