@@ -4,21 +4,51 @@ import { Canvas, useFrame, useLoader } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
 import { Mesh, Texture, TextureLoader } from 'three';
 import * as THREE from 'three';
-import Image from 'next/image'
+import mergeImages from 'merge-images';
+import { io } from "socket.io-client";
 
 const tilescale = 70;
 const cardScale = 70;
 const x = 3
 const y = 4
 
+const socket = io('http://localhost:8080');
+
 export default function App() {
+
+  useEffect(() => {
+    if (socket.connected) {
+      onConnect();
+    }
+
+    function onConnect() {
+      console.log("connected!")
+    }
+
+    function onDisconnect() {
+      console.log("disconnected!")
+    }
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+
+    socket.on("gameupdate", (gamestate) => {
+      console.log(gamestate);
+    })
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+    };
+  }, []);
 
   const tile = useLoader(TextureLoader, '/textures/tile.jpg')
   const textures: Texture[] = []
   textures.push(tile);
   const board = genGameField(x, y);
-
+  const [field, setField] = useState<string[][]>([]);
   const [cards, setCards] = useState(['f0003']);
+  const [select, setSelect] = useState<string | null>(null);
 
   const action = useState(null);
   return (
@@ -31,13 +61,23 @@ export default function App() {
         <pointLight position={[500, 1000, 0]} decay={0} intensity={Math.PI} />
 
         {board[0].map(arr => {
-          return(<InternalTile map={textures[arr[3]]} position={[arr[0], arr[1], arr[2]]} key={`${arr[0]} ${arr[1]} ${arr[2]}`}></InternalTile>)
+          return(<InternalTile map={textures[arr[3]]} onClick={() => {
+            console.log(`${arr[4]} ${arr[5]}`)
+          }} position={[arr[0], arr[1], arr[2]]} key={`${arr[4]} ${arr[5]}`}></InternalTile>)
         })}
         {board[1].map(arr => {
-          return(<Tile map={textures[arr[3]]} position={[arr[0], arr[1], arr[2]]} key={`${arr[0]} ${arr[1]} ${arr[2]}`}></Tile>)
+          return(<Tile map={textures[arr[3]]} onClick={() => {
+            console.log(`${arr[4]} ${arr[5]}`)
+          }} position={[arr[0], arr[1], arr[2]]} key={`${arr[4]} ${arr[5]}`}></Tile>)
         })}
 
-        <Card></Card>
+        <Card name="f0004" selected={select == "f0004"} onClick={() => {
+          if(select == "f0004"){
+            setSelect(null)
+          }else{
+            setSelect("f0004")
+          }
+        }} x={10} open={true}></Card>
       </Canvas>
     </div>
   )
@@ -90,9 +130,9 @@ function genGameField(x: number, y: number){
   let lastrow: number[][] = [];
     for(let i = 0; i < y; i++){
       if(i == y-1){
-        lastrow.push([i*tilescale, 0, i*tilescale, 0]);
+        lastrow.push([i*tilescale, 0, i*tilescale, 0, 0, i]);
       }else{
-        ret.push([i*tilescale, 0, i*tilescale, 0]);
+        ret.push([i*tilescale, 0, i*tilescale, 0, 0, i]);
       }
     }
     
@@ -101,11 +141,11 @@ function genGameField(x: number, y: number){
     for(let i = 1; i < x+1; i++){
       for(let j = 0 - i%2; j < y - i%2; j++){
         if(j == y-1){
-          lastrow.push([i*tilescale + j*tilescale - (Math.floor(i/2))*tilescale, 0, j*tilescale - (Math.floor(i/2))*tilescale, 0]);
-          lastrow.push([j*tilescale - (Math.floor(i/2))*tilescale, 0, i*tilescale + j*tilescale - (Math.floor(i/2))*tilescale, 0]);
+          lastrow.push([i*tilescale + j*tilescale - (Math.floor(i/2))*tilescale, 0, j*tilescale - (Math.floor(i/2))*tilescale, 0, i + x, j + i%2]);
+          lastrow.push([j*tilescale - (Math.floor(i/2))*tilescale, 0, i*tilescale + j*tilescale - (Math.floor(i/2))*tilescale, 0, -i + x, j + i%2]);
         }else{
-          ret.push([i*tilescale + j*tilescale - (Math.floor(i/2))*tilescale, 0, j*tilescale - (Math.floor(i/2))*tilescale, 0]);
-          ret.push([j*tilescale - (Math.floor(i/2))*tilescale, 0, i*tilescale + j*tilescale - (Math.floor(i/2))*tilescale, 0]);
+          ret.push([i*tilescale + j*tilescale - (Math.floor(i/2))*tilescale, 0, j*tilescale - (Math.floor(i/2))*tilescale, 0, i + x, j + i%2]);
+          ret.push([j*tilescale - (Math.floor(i/2))*tilescale, 0, i*tilescale + j*tilescale - (Math.floor(i/2))*tilescale, 0, -i + x, j + i%2]);
         }
       }
     }
@@ -118,40 +158,85 @@ function genGameField(x: number, y: number){
 
 function Card(props: any){
   const meshRef = useRef<Mesh>(null)
+  const matRef = useRef<THREE.Material>(null)
   const [hovered, setHover] = useState(false)
+  const [texture, setTexture] = useState(useLoader(TextureLoader, `/textures/cards/${props.name.charAt(0)}/base.png`))
+  const [loaded, setLoaded] = useState(false)
 
-  const texture = useLoader(TextureLoader, '/textures/cards/f/base.png')
+  useEffect(() => {
+    async function getTexture() {
+      await mergeImages([`/textures/cards/${props.name.charAt(0)}/base.png`, `/textures/cards/${props.name.charAt(0)}/cardart/${props.name.substring(1)}.png`, `/textures/cards/${props.name.charAt(0)}/overlay.png`]).then((b64) => {
+        setTexture(useLoader(TextureLoader, b64))
+        if(matRef.current != null){
+          matRef.current.needsUpdate = true;
+        }
+        setLoaded(true);
+      }).catch(() => {
+        setLoaded(false);
+        getTexture();
+      })
+    }
+    if(!loaded){
+      getTexture();
+    }
+  }, [])
+
+  const back = useLoader(TextureLoader, `/textures/cards/${props.name.charAt(0)}.png`)
+
+  const euler = new THREE.Euler(Math.atan( - 1 / Math.sqrt( 2 ) ), Math.PI/4, 0, 'YXZ');
+  const quaternion = new THREE.Quaternion(0, 0, 0, 0);
+  quaternion.setFromEuler(euler);
+  euler.setFromQuaternion(quaternion, 'XZY');
+
+  const moveLeft = (steps:number) => {
+    if(meshRef.current == null)return;
+    meshRef.current.position.x-=steps;
+    meshRef.current.position.z+=steps;
+  }
+
+  const moveRight = (steps:number) => {
+    if(meshRef.current == null)return;
+    meshRef.current.position.z-=steps;
+    meshRef.current.position.x+=steps;
+  }
+
+  const rotateRight = (steps:number) => {
+    if(meshRef.current == null)return;
+    meshRef.current.rotation.y+=steps
+  }
+
+  const rotateLeft = (steps:number) => {
+    if(meshRef.current == null)return;
+    meshRef.current.rotation.y-=steps
+  }
 
   useFrame((state, delta) => {
     if(meshRef.current == null)return;
-    
+    if(props.x != null && props.x > meshRef.current.position.x)moveRight(1);
+    if(props.x != null && props.x < meshRef.current.position.x)moveLeft(1);
+    if(props.open != null && props.open){
+      meshRef.current.rotation.y = euler.y
+    }else{
+      meshRef.current.rotation.y = euler.y + Math.PI
+    }
   })
 
   return(
     <mesh
       {...props}
       ref={meshRef}
-      rotation={[Math.atan( - 1 / Math.sqrt( 2 ) ), Math.PI/4, 0, 'XYZ']}
-      position={[tilescale * y, -cardScale * 2 ,tilescale * y]}
+      rotation={[euler.x, euler.y, euler.z, 'XZY']}
+      position={[tilescale * y, -cardScale * 3 ,tilescale * y]}
+      scale={hovered || props.selected ? 1.2 : 1}
       onPointerOver={(event) => setHover(true)}
       onPointerOut={(event) => setHover(false)}>
       <boxGeometry args={[2 * cardScale, 3 * cardScale, 0]}/>
-      <meshStandardMaterial map={texture} color={hovered ? "rgb(100%, 50%, 50%)" : 'rgb(90%, 90%, 90%)'} />
+      <meshStandardMaterial map={back} attach="material-0"/>
+      <meshStandardMaterial map={back} attach="material-1"/>
+      <meshStandardMaterial map={back} attach="material-2"/>
+      <meshStandardMaterial map={back} attach="material-3"/>
+      <meshStandardMaterial ref={matRef} map={texture} attach="material-4" color={props.selected ? "rgb(100%, 100%, 70%)" : "rgb(100%, 100%, 100%)"}/>
+      <meshStandardMaterial map={back} attach="material-5" color={props.selected ? "rgb(100%, 100%, 70%)" : "rgb(100%, 100%, 100%)"} />
     </mesh>
   )
 }
-
-// function hudmaybe(){
-//   return(
-//     <div>
-//     <div className="fixed w-1/4 h-1/4 bottom-0 left-1/6">
-//     <img className="h-full" src="/textures/cards/f.png"/>
-//   </div>
-//   <div className="fixed w-1/2 h-1/6 bg-[url(/textures/scroll.webp)] bg-cover bottom-0 right-1/4">
-//   </div>
-//   <div className="fixed w-1/4 h-1/4 bottom-0 left-3/4">
-//     <img className="h-full" src="/textures/cards/f.png"/>
-//   </div>
-//   </div>
-//   )
-// }
