@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFrame, useLoader } from '@react-three/fiber'
 import * as THREE from 'three'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
@@ -8,6 +8,7 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 export function FBXModel(props: any) {
     const fbx = useLoader(FBXLoader, '/models/sittingLaughing.fbx')
     const mixerRef = useRef<THREE.AnimationMixer | null>(null)
+    const motionRef = useRef<any>(null)
 
     useEffect(() => {
         console.log("FBX Animations:", fbx.animations);
@@ -29,14 +30,35 @@ export function FBXModel(props: any) {
     useFrame((_, delta) => {
         if (mixerRef.current) {
             mixerRef.current.update(delta);
-            // console.log("Animation updated:", delta);
+        }
+        if(fbx.position.x - props.position[0] > 5 || fbx.position.x - props.position[0] < -5){
+            if(fbx.position.x < props.position[0]){
+                fbx.position.x += 1
+            }else{
+                fbx.position.x -= 1
+            }
+        }
+        if(fbx.position.z - props.position[2] > 5 || fbx.position.z - props.position[2] < -5){
+            if(fbx.position.z < props.position[2]){
+                fbx.position.z += 1
+            }else{
+                fbx.position.z -= 1
+            }
         }
     });
-    
 
     // Adjust the model's scale and position
     fbx.scale.set(1, 1, 1) // Make sure it's a reasonable scale
-    fbx.position.set(props.position[0], props.position[1], props.position[2]) // Make sure it's visible
 
-    return <primitive object={fbx} />
+    return <primitive ref={motionRef} position={[0, 0, 0]} object={fbx} />
+}
+
+export function DrawCreature(props: any){
+    if(props.creature == null){
+      return null;
+    }
+    return (
+      <FBXModel position={[props.position[0], props.position[1], props.position[2]]}>
+      </FBXModel>
+    )
 }

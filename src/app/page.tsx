@@ -6,14 +6,15 @@ import { Mesh, Texture, TextureLoader } from 'three';
 import * as THREE from 'three';
 import mergeImages from 'merge-images';
 import { io } from "socket.io-client";
-import { FBXModel } from './render/creature';
+import { DrawCreature, FBXModel } from './render/creature';
+import { DrawGameField, InternalTile, Tile } from './render/board';
 
-const tilescale = 70;
-const cardScale = 70;
-const x = 3
-const y = 4
+export const tilescale = 70;
+export const cardScale = 70;
+export const x = 3
+export const y = 4
 
-const socket = io('http://localhost:8080');
+const socket = io('http://10.194.169.21:8080');
 
 export default function App() {
 
@@ -26,6 +27,7 @@ export default function App() {
 
     function onConnect() {
       console.log("connected!")
+      socket.emit("fieldupdate", "")
     }
 
     function onDisconnect() {
@@ -37,7 +39,6 @@ export default function App() {
 
     socket.on("creatureUpdate", async (gamestate) => {
       let jsoncontent = await JSON.parse(gamestate);
-      console.log(jsoncontent)
       setField(jsoncontent);
     })
 
@@ -50,7 +51,6 @@ export default function App() {
   const tile = useLoader(TextureLoader, '/textures/tile.jpg')
   const textures: Texture[] = []
   textures.push(tile);
-  const board = genGameField(x, y);
   const [cards, setCards] = useState(['f0003']);
   const [select, setSelect] = useState<string | null>(null);
 
@@ -64,39 +64,10 @@ export default function App() {
         <ambientLight intensity={Math.PI / 2} />
         <pointLight position={[500, 1000, 0]} decay={0} intensity={Math.PI} />
 
-        {board[0].map(arr => {
-          return(<InternalTile map={textures[arr[3]]} onClick={() => {
-            socket.emit("action", {
-              card: select,
-              x: arr[4],
-              y: arr[5]
-            })
-            console.log("action emitted!")
-          }} position={[arr[0], arr[1], arr[2]]} key={`${arr[4]} ${arr[5]}`}></InternalTile>)
-        })}
-        {board[1].map(arr => {
-          return(<Tile map={textures[arr[3]]} onClick={() => {
-            socket.emit("action", {
-              card: select,
-              x: arr[4],
-              y: arr[5]
-            })
-            console.log("action emitted!")
-          }} position={[arr[0], arr[1], arr[2]]} key={`${arr[4]} ${arr[5]}`}></Tile>)
-        })}
+        <DrawGameField select={select} textures={textures} socket={socket}></DrawGameField>
 
-        {field.length != 0 && field.map((arr: any, i: any) => {
-          return(
-            <>
-              {arr.map((obj: any, j: any) => {
-                  let xval = i-6;
-                  let yval = j;
-                  
-                  
-                  return(<DrawCreature creature={obj} position={[xval*tilescale + yval*tilescale - Math.ceil(xval/2)*tilescale, 0, yval*tilescale - Math.ceil(xval/2)*tilescale]}></DrawCreature>)
-              })}
-            </>
-          )
+        {field.length != 0 && field.map((obj: any,) => {
+          return(<DrawCreature key={obj.uuid} creature={obj} position={[(obj.x-6)*tilescale + obj.y*tilescale - Math.ceil((obj.x-6)/2)*tilescale, 0, obj.y*tilescale - Math.ceil((obj.x-6)/2)*tilescale]}></DrawCreature>)
         })}
 
         <Card name="f0004" selected={select == "f0004"} onClick={() => {
@@ -109,76 +80,6 @@ export default function App() {
       </Canvas>
     </div>
   )
-}
-
-function Tile(props: any) {
-  const meshRef = useRef<Mesh>(null)
-  const [hovered, setHover] = useState(false)
-
-  return (
-    <mesh
-      {...props}
-      ref={meshRef}
-      onPointerOver={(event) => setHover(true)}
-      onPointerOut={(event) => setHover(false)}>
-      <boxGeometry args={[tilescale, tilescale, tilescale]} />
-      <meshStandardMaterial map={props.map} color={hovered ? "rgb(100%, 50%, 50%)" : 'rgb(90%, 90%, 90%)'} />
-    </mesh>
-  )
-}
-
-function InternalTile(props: any){
-  const meshRef = useRef<Mesh>(null)
-  const [hovered, setHover] = useState(false)
-
-  useFrame((state, delta) => {
-    if(meshRef.current == null)return;
-    meshRef.current.rotation.x = -Math.PI/2
-    if(meshRef.current.position.y < props.position[1] + tilescale/2){
-      if(Math.random() < 0.5){
-        meshRef.current.position.y += 1;
-      }
-    }
-  })
-
-  return (
-    <mesh
-      {...props}
-      ref={meshRef}
-      onPointerOver={(event) => setHover(true)}
-      onPointerOut={(event) => setHover(false)}>
-      <planeGeometry args={[tilescale, tilescale]} />
-      <meshStandardMaterial map={props.map} color={hovered ? "rgb(100%, 50%, 50%)" : 'rgb(90%, 90%, 90%)'} />
-    </mesh>
-  )
-}
-
-function genGameField(x: number, y: number){
-  let ret: number[][] = [];
-  let lastrow: number[][] = [];
-    for(let i = 0; i < y; i++){
-      if(i == y-1){
-        lastrow.push([i*tilescale, 0, i*tilescale, 0, 0+x*2, i]);
-      }else{
-        ret.push([i*tilescale, 0, i*tilescale, 0, 0+x*2, i]);
-      }
-    }
-    
-    x*=2;
-
-    for(let i = 1; i < x+1; i++){
-      for(let j = 0 - i%2; j < y - i%2; j++){
-        if(j == y-1){
-          lastrow.push([i*tilescale + j*tilescale - (Math.floor(i/2))*tilescale, 0, j*tilescale - (Math.floor(i/2))*tilescale, 0, i + x, j + i%2]);
-          lastrow.push([j*tilescale - (Math.floor(i/2))*tilescale, 0, i*tilescale + j*tilescale - (Math.floor(i/2))*tilescale, 0, -i + x, j + i%2]);
-        }else{
-          ret.push([i*tilescale + j*tilescale - (Math.floor(i/2))*tilescale, 0, j*tilescale - (Math.floor(i/2))*tilescale, 0, i + x, j + i%2]);
-          ret.push([j*tilescale - (Math.floor(i/2))*tilescale, 0, i*tilescale + j*tilescale - (Math.floor(i/2))*tilescale, 0, -i + x, j + i%2]);
-        }
-      }
-    }
-
-  return [ret, lastrow];
 }
 
 function Card(props: any){
@@ -263,15 +164,5 @@ function Card(props: any){
       <meshStandardMaterial ref={matRef} map={texture} attach="material-4" color={props.selected ? "rgb(100%, 100%, 70%)" : "rgb(100%, 100%, 100%)"}/>
       <meshStandardMaterial map={back} attach="material-5" color={props.selected ? "rgb(100%, 100%, 70%)" : "rgb(100%, 100%, 100%)"} />
     </mesh>
-  )
-}
-
-function DrawCreature(props: any){
-  if(props.creature == null){
-    return null;
-  }
-  return (
-    <FBXModel position={[props.position[0], props.position[1], props.position[2]]}>
-    </FBXModel>
   )
 }
