@@ -109,13 +109,13 @@ export default function App() {
   const tile = useLoader(TextureLoader, '/textures/tile.jpg')
   const textures: Texture[] = []
   textures.push(tile);
-  const [cards, setCards] = useState<{hand: string[], deck: string, discard: string[]} | null>(null);
+  const [cards, setCards] = useState<{hand: string[], deck: string, discard: string[], mana: number} | null>(null);
   const [possibleMoves, setPossibleMoves] = useState([]);
   const [turn, setTurn] = useState(false);
 
   const action = useState(null);
   return (
-    <div id="canvas-container" className="w-screen h-screen text-center items-center justify-center">
+    <div id="canvas-container" className="w-screen h-screen text-center items-center justify-center bg-[url(/textures/background.png)] bg-cover">
       <Canvas 
         orthographic={true} 
         camera={{position: [tilescale * y + cardScale, tilescale * (1/4 * y), tilescale * y + cardScale], rotation: [Math.atan( - 1 / Math.sqrt( 2 ) ), Math.PI/4, 0, 'YXZ']}}
@@ -150,6 +150,7 @@ export default function App() {
         socket.emit("turnend", "");
       }}
       >End Turn</a>
+      <div className={`w-60 h-12 text-yellow-400 bg-yellow-600 fixed bottom-4 left-4 bg-black border-2 flex justify-center items-center transition ease-in-out hover:scale-110 duration-300 rounded-xl ${oswald.className}`}>{`Mana: ${cards?.mana}`}</div>
       <div className={`w-screen h-screen fixed top-0 ${turn ? "hidden" : ""}`}></div>
     </div>
   )
@@ -211,8 +212,8 @@ function Card(props: any){
 
   useFrame((state, delta) => {
     if(meshRef.current == null)return;
-    if(props.x != null && props.x > meshRef.current.position.x - tilescale * y)moveRight(1);
-    if(props.x != null && props.x < meshRef.current.position.x - tilescale * y)moveLeft(1);
+    if(props.x != null && props.x > meshRef.current.position.x - tilescale * y)moveRight(3);
+    if(props.x != null && props.x < meshRef.current.position.x - tilescale * y)moveLeft(3);
     if(props.open != null && props.open){
       meshRef.current.rotation.y = euler.y
     }else{
