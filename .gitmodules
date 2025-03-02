@@ -1,0 +1,3 @@
+[submodule "ArcadiaServer"]
+	path = ArcadiaServer
+	url = https://github.com/huskabyte/ArcadiaServer
