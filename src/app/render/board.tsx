@@ -1,3 +1,4 @@
+const fs = require('fs');
 import { useRef, useState } from "react"
 import { Mesh } from "three"
 import { tilescale, x, y } from "../page"

@@ -9,6 +9,7 @@ import { io } from "socket.io-client";
 import { DrawCreature, FBXModel } from './render/creature';
 import { DrawGameField, InternalTile, Tile } from './render/board';
 import {Oswald} from 'next/font/google'
+import { getBalance, sendTransaction } from './solana/solanabroker';
 
 export const tilescale = 70;
 export const cardScale = 70;
@@ -25,6 +26,7 @@ const socket = io('http://10.194.169.21:8080');
 export default function App() {
 
   const [field, setField] = useState<any>([]);
+  const [balance, setBalance] = useState(0);
 
   useEffect(() => {
     if (socket.connected) {
@@ -64,6 +66,7 @@ export default function App() {
     socket.on("creatureUpdate", async (gamestate) => {
       let jsoncontent = await JSON.parse(gamestate);
       setField(jsoncontent);
+      setBalance((await getBalance())/1000000000.0)
     })
 
     socket.on("moves", async (moves) => {
@@ -87,6 +90,11 @@ export default function App() {
 
     socket.on("done", () => {
       setTurn(true);
+    })
+
+    socket.on("kill", async () => {
+      sendTransaction();
+      setBalance((await getBalance())/1000000000.0)
     })
 
     return () => {
@@ -150,6 +158,7 @@ export default function App() {
         socket.emit("turnend", "");
       }}
       >End Turn</a>
+      <div className={`w-60 h-12 text-yellow-400 bg-yellow-600 fixed top-4 left-4 bg-black border-2 flex justify-center items-center transition ease-in-out hover:scale-110 duration-300 rounded-xl ${oswald.className}`}>{`Sol: ${balance.toFixed(3)}`}</div>
       <div className={`w-60 h-12 text-yellow-400 bg-yellow-600 fixed bottom-4 left-4 bg-black border-2 flex justify-center items-center transition ease-in-out hover:scale-110 duration-300 rounded-xl ${oswald.className}`}>{`Mana: ${cards?.mana}`}</div>
       <div className={`w-screen h-screen fixed top-0 ${turn ? "hidden" : ""}`}></div>
     </div>

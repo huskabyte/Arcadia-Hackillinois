@@ -2,6 +2,12 @@
   "name": "ascent-to-arcadia",
   "version": "0.1.0",
   "private": true,
+
+"browser": {
+  "fs": false,
+  "path": false,
+  "os": false
+},
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -11,6 +17,7 @@
   "dependencies": {
     "@react-three/drei": "^10.0.3",
     "@react-three/fiber": "^9.0.4",
+    "@solana/web3.js": "^1.98.0",
     "@types/three": "^0.174.0",
     "merge-images": "^2.0.0",
     "next": "15.2.0",
