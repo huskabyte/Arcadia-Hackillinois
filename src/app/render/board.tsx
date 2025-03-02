@@ -14,7 +14,7 @@ export function Tile(props: any) {
       onPointerOver={(event) => setHover(true)}
       onPointerOut={(event) => setHover(false)}>
       <boxGeometry args={[tilescale, tilescale, tilescale]} />
-      <meshStandardMaterial map={props.map} color={hovered ? "rgb(100%, 50%, 50%)" : 'rgb(90%, 90%, 90%)'} />
+      <meshStandardMaterial map={props.map} color={props.valid ? `${hovered ? "rgb(100%, 50%, 50%)" : 'rgb(100%, 50%, 100%)'}` : "rgb(90%, 90%, 90%)"} />
     </mesh>
   )
 }
@@ -40,7 +40,7 @@ export function InternalTile(props: any){
       onPointerOver={(event) => setHover(true)}
       onPointerOut={(event) => setHover(false)}>
       <planeGeometry args={[tilescale, tilescale]} />
-      <meshStandardMaterial map={props.map} color={hovered ? "rgb(100%, 50%, 50%)" : 'rgb(90%, 90%, 90%)'} />
+      <meshStandardMaterial map={props.map} color={props.valid ? `${hovered ? "rgb(100%, 50%, 50%)" : 'rgb(100%, 50%, 100%)'}` : "rgb(90%, 90%, 90%)"} />
     </mesh>
   )
 }
@@ -50,9 +50,11 @@ export function DrawGameField(props: any){
     return(
         <>
         {board[0].map(arr => {
-          return(<InternalTile map={props.textures[arr[3]]} onClick={() => {
+          return(<InternalTile valid={props.moves.includes(`${arr[4]} ${arr[5]}`)} map={props.textures[arr[3]]} onClick={() => {
+            if(!props.moves.includes(`${arr[4]} ${arr[5]}`))return;
             props.socket.emit("action", {
-              card: props.select,
+              index: props.select,
+              card: (props.cards.hand != null && props.select >= 0) ? props.cards.hand[props.select] : null,
               x: arr[4],
               y: arr[5]
             })
@@ -60,9 +62,11 @@ export function DrawGameField(props: any){
           }} position={[arr[0], arr[1], arr[2]]} key={`${arr[4]} ${arr[5]}`}></InternalTile>)
         })}
         {board[1].map(arr => {
-          return(<Tile map={props.textures[arr[3]]} onClick={() => {
+          return(<Tile valid={props.moves.includes(`${arr[4]} ${arr[5]}`)} map={props.textures[arr[3]]} onClick={() => {
+            if(!props.moves.includes(`${arr[4]} ${arr[5]}`))return;
             props.socket.emit("action", {
-              card: props.select,
+              index: props.select,
+              card: (props.cards.hand != null && props.select >= 0) ? props.cards.hand[props.select] : null,
               x: arr[4],
               y: arr[5]
             })

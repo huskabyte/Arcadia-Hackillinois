@@ -56,7 +56,7 @@ export function DrawCreature(props: any){
       return null;
     }
     return (
-      <FBXModel position={[props.position[0], props.position[1], props.position[2]]}>
+      <FBXModel key={props.creature.creatureId} position={[props.position[0], props.position[1], props.position[2]]}>
       </FBXModel>
     )
 }

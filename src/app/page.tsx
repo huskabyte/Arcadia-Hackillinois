@@ -8,11 +8,17 @@ import mergeImages from 'merge-images';
 import { io } from "socket.io-client";
 import { DrawCreature, FBXModel } from './render/creature';
 import { DrawGameField, InternalTile, Tile } from './render/board';
+import {Oswald} from 'next/font/google'
 
 export const tilescale = 70;
 export const cardScale = 70;
 export const x = 3
 export const y = 4
+
+const oswald = Oswald({
+  subsets: ["latin"],
+  weight: '400'
+})
 
 const socket = io('http://10.194.169.21:8080');
 
@@ -28,7 +34,18 @@ export default function App() {
     function onConnect() {
       console.log("connected!")
       socket.emit("fieldupdate", "")
-      socket.emit("movesupdate", "")
+      socket.emit("movesupdate", {
+        index: -1,
+        card: select,
+        x: 0,
+        y: 0
+      })
+      socket.emit("cardsupdate", {
+        index: -1,
+        card: select,
+        x: 0,
+        y: 0
+      })
       const delayMessage = async () => {
         setTimeout(() => {
           setTurn(true);
@@ -49,8 +66,27 @@ export default function App() {
       setField(jsoncontent);
     })
 
-    socket.on("moves", moves => {
-      setPossibleMoves(moves);
+    socket.on("moves", async (moves) => {
+      let possible = await JSON.parse(moves);
+      setPossibleMoves(possible);
+    })
+
+    socket.on("cards", async (cards) => {
+      let crads = await JSON.parse(cards);
+      setCards(crads);
+      if(crads.hand.length == 0){
+        socket.emit("cardsupdate", {
+          index: -1,
+          card: select,
+          x: 0,
+          y: 0
+        })
+      }
+      setSelect(-1)
+    })
+
+    socket.on("done", () => {
+      setTurn(true);
     })
 
     return () => {
@@ -59,11 +95,21 @@ export default function App() {
     };
   }, []);
 
+  const [select, setSelect] = useState<number>(-1);
+
+  useEffect(() => {
+    socket.emit("movesupdate", {
+      index: -1,
+      card: select >= 0 ? cards?.hand[select].substring(0, 5) : null,
+      x: 0,
+      y: 0
+    });
+  }, [select]);
+
   const tile = useLoader(TextureLoader, '/textures/tile.jpg')
   const textures: Texture[] = []
   textures.push(tile);
-  const [cards, setCards] = useState(['f0003']);
-  const [select, setSelect] = useState<string | null>(null);
+  const [cards, setCards] = useState<{hand: string[], deck: string, discard: string[]} | null>(null);
   const [possibleMoves, setPossibleMoves] = useState([]);
   const [turn, setTurn] = useState(false);
 
@@ -77,20 +123,33 @@ export default function App() {
         <ambientLight intensity={Math.PI / 2} />
         <pointLight position={[500, 1000, 0]} decay={0} intensity={Math.PI} />
 
-        <DrawGameField select={select} textures={textures} socket={socket} moves={turn ? possibleMoves : []}></DrawGameField>
+        <DrawGameField select={select} textures={textures} socket={socket} cards={cards} moves={turn ? possibleMoves : []}></DrawGameField>
 
         {field.length != 0 && field.map((obj: any,) => {
           return(<DrawCreature key={obj.uuid} creature={obj} position={[(obj.x-6)*tilescale + obj.y*tilescale - Math.ceil((obj.x-6)/2)*tilescale, 0, obj.y*tilescale - Math.ceil((obj.x-6)/2)*tilescale]}></DrawCreature>)
         })}
 
-        <Card name="f0004" selected={select == "f0004"} onClick={() => {
-          if(select == "f0004"){
-            setSelect(null)
-          }else{
-            setSelect("f0004")
-          }
-        }} x={10} open={false}></Card>
+        {cards!=null && cards.deck != "null" && <Card name={cards.deck + "0000"} x={- cardScale * 1.7 * 4}></Card>}
+
+        {cards?.hand.map((card: any, index) => {
+          console.log(card)
+                return(
+                  <Card key={card} name={card} selected={select == index} onClick={() => {
+                    if(select == index){
+                      setSelect(-1)
+                    }else{
+                      setSelect(index)
+                    }
+                  }} x={cardScale * 1.7 * index - cardScale * 1.7 * (cards.hand.length-1)/2} open={true}></Card>)
+        })}
+        {cards!= null && cards.discard.length > 0 && <Card name={cards.discard[cards.discard.length-1].charAt(0)} position={[tilescale * y + cardScale * 1.7 * 4, -cardScale * 3 ,tilescale * y - cardScale * 1.7 * 4]}></Card>}
       </Canvas>
+      <a href="#" type="button" className={`w-60 h-12 fixed bottom-4 right-4 bg-black border-2 flex justify-center items-center transition ease-in-out hover:scale-110 hover:text-black hover:bg-white duration-300 rounded-xl ${oswald.className}`}
+      onClick={() => {
+        setTurn(false);
+        socket.emit("turnend", "");
+      }}
+      >End Turn</a>
       <div className={`w-screen h-screen fixed top-0 ${turn ? "hidden" : ""}`}></div>
     </div>
   )
@@ -105,7 +164,7 @@ function Card(props: any){
 
   useEffect(() => {
     async function getTexture() {
-      await mergeImages([`/textures/cards/${props.name.charAt(0)}/base.png`, `/textures/cards/${props.name.charAt(0)}/cardart/${props.name.substring(1)}.png`, `/textures/cards/${props.name.charAt(0)}/overlay.png`]).then((b64) => {
+      await mergeImages([`/textures/cards/${props.name.charAt(0)}/base.png`, `/textures/cards/${props.name.charAt(0)}/cardart/${props.name.substring(1,5)}.png`, `/textures/cards/${props.name.charAt(0)}/overlay.png`]).then((b64) => {
         setTexture(useLoader(TextureLoader, b64))
         if(matRef.current != null){
           matRef.current.needsUpdate = true;
@@ -152,8 +211,8 @@ function Card(props: any){
 
   useFrame((state, delta) => {
     if(meshRef.current == null)return;
-    if(props.x != null && props.x > meshRef.current.position.x)moveRight(1);
-    if(props.x != null && props.x < meshRef.current.position.x)moveLeft(1);
+    if(props.x != null && props.x > meshRef.current.position.x - tilescale * y)moveRight(1);
+    if(props.x != null && props.x < meshRef.current.position.x - tilescale * y)moveLeft(1);
     if(props.open != null && props.open){
       meshRef.current.rotation.y = euler.y
     }else{
@@ -166,7 +225,7 @@ function Card(props: any){
       {...props}
       ref={meshRef}
       rotation={[euler.x, euler.y, euler.z, 'XZY']}
-      position={[tilescale * y, -cardScale * 3 ,tilescale * y]}
+      position={props.position!=null ? props.position : [tilescale * y - cardScale * 1.7 * 4, -cardScale * 3 ,tilescale * y + cardScale * 1.7 * 4]}
       scale={hovered || props.selected ? 1.2 : 1}
       onPointerOver={(event) => setHover(props.open)}
       onPointerOut={(event) => setHover(false)}>
