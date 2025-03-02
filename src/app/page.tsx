@@ -126,7 +126,7 @@ export default function App() {
         <DrawGameField select={select} textures={textures} socket={socket} cards={cards} moves={turn ? possibleMoves : []}></DrawGameField>
 
         {field.length != 0 && field.map((obj: any,) => {
-          return(<DrawCreature key={obj.uuid} creature={obj} position={[(obj.x-6)*tilescale + obj.y*tilescale - Math.ceil((obj.x-6)/2)*tilescale, 0, obj.y*tilescale - Math.ceil((obj.x-6)/2)*tilescale]}></DrawCreature>)
+          return(<DrawCreature key={obj.creatureId} creature={obj} position={[(obj.x-6)*tilescale + obj.y*tilescale - Math.ceil((obj.x-6)/2)*tilescale, 0, obj.y*tilescale - Math.ceil((obj.x-6)/2)*tilescale]}></DrawCreature>)
         })}
 
         {cards!=null && cards.deck != "null" && <Card name={cards.deck + "0000"} x={- cardScale * 1.7 * 4}></Card>}

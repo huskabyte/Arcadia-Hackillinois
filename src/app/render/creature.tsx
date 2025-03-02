@@ -7,7 +7,7 @@ import * as THREE from 'three'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 
 export function FBXModel(props: any) {
-    const fbx = useLoader(FBXLoader, '/models/sittingLaughing.fbx')
+    const fbx = useLoader(FBXLoader, `/models/${props.creature.resource}.fbx`)
     const mixerRef = useRef<THREE.AnimationMixer | null>(null)
     const motionRef = useRef<any>(null)
     const text = useRef<any>(null)
@@ -63,18 +63,37 @@ export function FBXModel(props: any) {
             }
         }
     });
+    if(props.creature.resource == "fox"){
+        fbx.scale.set(0.5, 0.5, 0.5)
+        fbx.rotation.set(0, Math.PI/2, 0)
+    }else{
+        fbx.scale.set(1, 1, 1)
+    }
 
-    fbx.scale.set(1, 1, 1)
+    let primy = 35;
+    let texty = 110;
+
+    if(props.creature.resource == "sittingLaughing"){
+        primy = 0;
+        texty = 150;
+    }
+
     return (<group>
-        <primitive ref={motionRef} position={[0, 0, 0]} object={fbx} />
+        <primitive ref={motionRef} position={[0, primy, 0]} object={fbx} />
+        <group ref = {text} position={[0, texty, 0]}>
         <Text
-            ref = {text}
-            position={[0, 140, 0]}
             fontSize={15}
             color="red"
             anchorX="center"
             anchorY="middle"
         >{`${props.creature.health} / ${props.creature.maxhealth}`}</Text>
+        <Text
+            fontSize={15}
+            color="cyan"
+            anchorX="center"
+            anchorY="middle"
+        >{`\n\n ${props.creature.block}`}</Text>
+        </group>
         </group>)
 }
 
