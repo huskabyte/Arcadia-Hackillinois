@@ -1,0 +1,3 @@
+[submodule "ArcadiaServer-Hackillinois"]
+	path = ArcadiaServer-Hackillinois
+	url = git@github.com:huskabyte/ArcadiaServer-Hackillinois.git
